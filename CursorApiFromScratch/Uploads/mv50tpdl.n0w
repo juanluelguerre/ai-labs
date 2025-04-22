@@ -1,0 +1,55 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft": "Warning",
+      "Microsoft.AspNetCore": "Warning",
+      "Hangfire": "Warning"
+    }
+  },
+  "Serilog": {
+    "MinimumLevel": {
+      "Default": "Debug",
+      "Override": {
+        "Hangfire": "Warning"
+      }
+    },
+    "WriteTo": [
+      {
+        "Name": "Console",
+        "Args": {
+          "restrictedToMinimumLevel": "Debug",
+          "outputTemplate": "===\u003E [{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext} {Message:lj}{NewLine}{Exception}",
+          "theme": "Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme::Code, Serilog.Sinks.Console"
+        }
+      }
+    ]
+  },
+  "ConnectionStrings": {
+    "HangfireConnection": "Data Source=.;Initial Catalog=Integrations.Hangfire;Trusted_Connection=SSPI;MultipleActiveResultSets=true;Trust Server Certificate=true",
+    "IntegrationsConnection": "Data Source=.;Initial Catalog=Integrations;Trusted_Connection=SSPI;MultipleActiveResultSets=true;Trust Server Certificate=true"
+  },
+  "ApiAuthentication": {
+    "AuthAuthority": "https://localhost:44300",
+    "AuthAudience": "nextchapter_integrations_test",
+    "Audience": "nextchapter_integrations_test",
+    "Issuer": "https://localhost:7140",
+    "Secret": "nextchapter-integrations-api-secret"
+  },
+  "Authentication": {
+    "Schemes": {
+      "LocalAuthIssuer": {
+        "ValidAudiences": [
+          "http://localhost:4047",
+          "https://localhost:44344",
+          "http://localhost:5167",
+          "https://localhost:7042"
+        ],
+        "ValidIssuer": "dotnet-user-jwts"
+      }
+    }
+  },
+  "IntegrationsFramework": {
+    "DebugQueries": true
+  }
+}

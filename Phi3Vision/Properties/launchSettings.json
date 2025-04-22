@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Phi3Vision": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}

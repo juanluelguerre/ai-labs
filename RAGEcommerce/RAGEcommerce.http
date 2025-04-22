@@ -1,0 +1,23 @@
+@RAGEcommerce_HostAddress = http://localhost:5270
+
+### Health check endpoint
+GET {{RAGEcommerce_HostAddress}}/health
+Accept: application/json
+
+### Initialize RAG with product data
+POST {{RAGEcommerce_HostAddress}}/api/rag/init
+Accept: application/json
+
+### Get all products
+GET {{RAGEcommerce_HostAddress}}/api/products
+Accept: application/json
+
+### Query products using RAG
+POST {{RAGEcommerce_HostAddress}}/api/rag/query
+Content-Type: application/json
+Accept: application/json
+
+{
+  "question": "What gear should I buy for a mountain hike?"
+}
+
