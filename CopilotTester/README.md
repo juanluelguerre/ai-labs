@@ -186,4 +186,4 @@ This project is under the [MIT](LICENSE) license.
 
 ## ✉️ Contact
 
-For any inquiries about this project, you can [open an issue](https://github.com/yourusername/CopilotTester/issues) or contact the main author.
+For any inquiries about this project, you can [open an issue](https://github.com/juanluelguerre/ai-labs/issues) or contact the main author.
