@@ -1,10 +1,19 @@
-﻿namespace RAGEcommerce.Services;
+﻿using Microsoft.Extensions.AI;
 
-public class EmbeddingService
+namespace RAGEcommerce.Services;
+
+public class EmbeddingService(IEmbeddingGenerator<string, Embedding<float>> embeddingGenerator)
+    : IEmbeddingService
 {
-    public float[] GenerateEmbedding(string text)
+    // Fist simple demo just using a dummy vector.
+    //public float[] GenerateEmbedding(string text)
+    //{
+    //    // Dummy vector, replace with real embeddings
+    //    return new float[1536];
+    //}
+
+    public async Task<ReadOnlyMemory<float>> GenerateEmbedding(string text)
     {
-        // Dummy vector, replace with real embeddings
-        return new float[1536];
+        return await embeddingGenerator.GenerateVectorAsync(text);
     }
 }

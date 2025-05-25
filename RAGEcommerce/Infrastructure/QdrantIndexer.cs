@@ -4,7 +4,10 @@ using RAGEcommerce.Services;
 
 namespace RAGEcommerce.Infrastructure;
 
-public class QdrantIndexer(QdrantClient client, ProductCatalogService productService)
+public class QdrantIndexer(
+    QdrantClient client,
+    ProductCatalogService productService,
+    IEmbeddingService embeddingService)
 {
     public async Task IndexProductsAsync()
     {
@@ -13,28 +16,41 @@ public class QdrantIndexer(QdrantClient client, ProductCatalogService productSer
             var collections = await client.ListCollectionsAsync();
             if (!collections.Contains("products"))
             {
+                //await client.CreateCollectionAsync(
+                //    "products",
+                //    new VectorParams { Size = 1536, Distance = Distance.Cosine });
                 await client.CreateCollectionAsync(
                     "products",
-                    new VectorParams { Size = 1536, Distance = Distance.Cosine });
+                    new VectorParams { Size = 384, Distance = Distance.Cosine });
             }
 
-            var embeddings = productService.GetAllProducts().Select(p =>
-                new PointStruct
-                {
-                    Id = new PointId { Num = (ulong)p.Id },
-                    Vectors = new Vectors
-                        { Vector = new EmbeddingService().GenerateEmbedding(p.Description) },
-                    Payload =
+            var embeddings = await Task.WhenAll(
+                productService.GetAllProducts().Select(async p =>
+                    new PointStruct
                     {
-                        { "id", new Value { IntegerValue = p.Id } },
-                        { "name", new Value { StringValue = p.Name } },
-                        { "description", new Value { StringValue = p.Description } }
-                    }
-                }).ToList();
+                        Id = new PointId { Num = (ulong)p.Id },
+                        Vectors = new Vectors
+                        {
+                            Vector = new Vector
+                            {
+                                Data =
+                                {
+                                    (await embeddingService.GenerateEmbedding(p.Description))
+                                    .ToArray()
+                                }
+                            }
+                        },
+                        Payload =
+                        {
+                            { "id", new Value { IntegerValue = p.Id } },
+                            { "name", new Value { StringValue = p.Name } },
+                            { "description", new Value { StringValue = p.Description } }
+                        }
+                    }));
 
             // Use a batch approach to avoid large payload issues
             const int batchSize = 100;
-            for (var i = 0; i < embeddings.Count; i += batchSize)
+            for (var i = 0; i < embeddings.Length; i += batchSize)
             {
                 var batch = embeddings.Skip(i).Take(batchSize).ToList();
                 await client.UpsertAsync("products", batch);

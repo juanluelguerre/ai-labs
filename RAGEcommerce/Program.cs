@@ -1,3 +1,6 @@
+#pragma warning disable SKEXP0070
+
+using Microsoft.Extensions.AI;
 using Microsoft.SemanticKernel;
 using Qdrant.Client;
 using RAGEcommerce.Infrastructure;
@@ -15,21 +18,30 @@ builder.Services.AddSingleton(_ => new QdrantClient("localhost"));
 builder.Services.AddSingleton<Kernel>(_ =>
 {
     const string modelPath =
-        @"C:\phi-3\models\Phi-3-mini-4k-instruct-onnx\cpu_and_mobile\cpu-int4-awq-block-128";
+        @"C:\ai-models\phi-3\models\Phi-3-mini-4k-instruct-onnx\cpu_and_mobile\cpu-int4-awq-block-128";
 
-#pragma warning disable SKEXP0070 // For evaluation purposes only and is subject to change or removal in future updates.
     var kernel = Kernel.CreateBuilder()
         .AddOnnxRuntimeGenAIChatCompletion("phi-3", modelPath)
+        .AddBertOnnxEmbeddingGenerator(
+            onnxModelPath: @"C:\ai-models\bge-micro-v2\onnx\model.onnx",
+            vocabPath: @"C:\ai-models\bge-micro-v2\vocab.txt")
         .Build();
-#pragma warning restore SKEXP0070 // For evaluation purposes only and is subject to change or removal in future updates.
 
     return kernel;
 });
 
-builder.Services.AddSingleton<EmbeddingService>();
+
 builder.Services.AddSingleton<QdrantIndexer>();
 builder.Services.AddSingleton<ChatService>();
 builder.Services.AddSingleton<ProductCatalogService>();
+builder.Services.AddSingleton<IEmbeddingService, EmbeddingService>();
+
+
+builder.Services.AddSingleton<IEmbeddingGenerator<string, Embedding<float>>>(sp =>
+{
+    var kernel = sp.GetRequiredService<Kernel>();
+    return kernel.GetRequiredService<IEmbeddingGenerator<string, Embedding<float>>>();
+});
 
 var app = builder.Build();
 
@@ -79,9 +91,9 @@ app.MapGet(
 app.MapPost(
         "/api/rag/query", async (
             UserQuery userQuery, QdrantClient qdrantClient,
-            EmbeddingService embeddingService, ChatService chatService) =>
+            IEmbeddingService embeddingService, ChatService chatService) =>
         {
-            var embedding = embeddingService.GenerateEmbedding(userQuery.Question);
+            var embedding = await embeddingService.GenerateEmbedding(userQuery.Question);
             var results = await qdrantClient.SearchAsync("products", embedding, limit: 3);
 
             var context = results.Any()
