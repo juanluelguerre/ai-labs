@@ -12,6 +12,7 @@ builder.Logging.AddConsole();
 builder.Services
     .AddMcpServer()
     .WithStdioServerTransport()
+    // .WithHttpTransport()
     .WithPromptsFromAssembly()
     .WithToolsFromAssembly()
     .WithTools<WeatherTool>();
