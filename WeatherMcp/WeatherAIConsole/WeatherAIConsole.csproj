@@ -9,11 +9,16 @@
 
  <ItemGroup>	
 	<PackageReference Include="Microsoft.SemanticKernel" Version="1.55.0" />    
-	<PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.55.0" />
+	<PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.55.0" />    
+	<PackageReference Include="Microsoft.SemanticKernel.Connectors.Google" Version="1.55.0-alpha" />
 	<PackageReference Include="Microsoft.SemanticKernel.Connectors.Onnx" Version="1.55.0-alpha" />	
 	<PackageReference Include="Microsoft.SemanticKernel.Plugins.Core" Version="1.55.0-preview" />
 	 
 	<PackageReference Include="ModelContextProtocol" Version="0.2.0-preview.3" />    
+ </ItemGroup>
+
+ <ItemGroup>
+   <ProjectReference Include="..\Weather.Common\Weather.Common.csproj" />
  </ItemGroup>
 
 </Project>

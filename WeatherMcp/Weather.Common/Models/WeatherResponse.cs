@@ -1,4 +1,4 @@
-namespace WeatherMcpServer.Models;
+namespace Weather.Common.Models;
 
 public class WeatherResponse
 {

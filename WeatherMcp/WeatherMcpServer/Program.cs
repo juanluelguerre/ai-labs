@@ -14,8 +14,8 @@ builder.Services
     .WithStdioServerTransport()
     // .WithHttpTransport()
     .WithPromptsFromAssembly()
-    .WithToolsFromAssembly()
-    .WithTools<WeatherTool>();
+    .WithToolsFromAssembly();
+//.WithTools<WeatherTool>();
 //.WithResources<SampleResource>()
 //.WithPrompts<SamplePrompt>();
 

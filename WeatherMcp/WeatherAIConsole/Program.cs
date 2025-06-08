@@ -2,81 +2,107 @@
 #pragma warning disable SKEXP0001
 
 using System.Text;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.ML.OnnxRuntimeGenAI;
 using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.ChatCompletion;
+using Microsoft.SemanticKernel.Connectors.Google;
+using Microsoft.SemanticKernel.Connectors.Onnx;
+using Microsoft.SemanticKernel.Connectors.OpenAI;
 using ModelContextProtocol.Client;
-using WeatherMcpServer;
-
-const string mcpServerProjectPath =
-    @"C:\code\elguerre\ai-labs\WeatherMcp\WeatherMcpServer\WeatherMcpServer.csproj";
+using WeatherAIConsole.Plugins;
 
 try
 {
-    var config = new ConfigurationBuilder()
-        .Build();
-
-    Console.WriteLine("Client Weather Console started !");
-
-    // ----------------- MCP Server Setup ----------------- 
-
-    await using var mcpClient = await McpClientFactory.CreateAsync(
-        new StdioClientTransport(
-            new StdioClientTransportOptions
-            {
-                Name = "GetWeather",
-                Command = "dotnet",
-                Arguments =
-                [
-                    "run", "--project", mcpServerProjectPath
-                ],
-            }));
-
+    await using var mcpClient = await CreateMcpClient();
     var tools = await mcpClient.ListToolsAsync();
-    foreach (var tool in tools)
+
+    PrintMcpTools(tools);
+
+    // ONNX
+    //const string modelPath =
+    //    //@"C:\ai-models\phi-3\Phi-3-mini-4k-instruct-onnx\cpu_and_mobile\cpu-int4-awq-block-128";
+    //    @"C:\ai-models\phi-4\cpu_and_mobile\cpu-int4-rtn-block-32-acc-level-4";
+
+    var kernelBuilder = Kernel.CreateBuilder()
+        //.AddOnnxRuntimeGenAIChatCompletion("phi-4", modelPath);
+        .AddGoogleAIGeminiChatCompletion(
+            "gemini-2.0-flash",
+            Environment.GetEnvironmentVariable("GEMINI_API_KEY") ?? String.Empty);
+
+    // MCP TOOLS
+    kernelBuilder.Plugins.AddFromFunctions(
+        "Tools", tools.Select(aiFunction => aiFunction.AsKernelFunction()));
+
+
+    //kernelBuilder.Plugins.AddFromType<TimePlugin>();
+    //kernelBuilder.Plugins.AddFromType<WeatherPlugin>();
+
+    var kernel = kernelBuilder.Build();
+
+    #region Direct plugin usages to test/debug them
+
+    //var timePlugin = kernel.Plugins[nameof(TimePlugin)];
+    //var currentTime = await kernel.InvokeAsync(timePlugin["GetCurrentTime"]);
+    //Console.WriteLine($"[Plugin] Current time is >>: {currentTime}");
+    //
+    //var weatherPlugin = kernel.Plugins[nameof(WeatherPlugin)];
+    //var currentWeather = await kernel.InvokeAsync(
+    //    weatherPlugin["GetWeather"], new() { { "city", "Huelva" } });
+    //Console.WriteLine($"[Plugin] Current weather is >>: {currentWeather}");
+
+    #endregion
+
+    #region ONNX
+
+    //var executionSettings = new OnnxRuntimeGenAIPromptExecutionSettings
+    //{
+    //    Temperature = 0,
+    //    FunctionChoiceBehavior =
+    //        FunctionChoiceBehavior.Auto(
+    //            options: new FunctionChoiceBehaviorOptions { RetainArgumentTypes = true, }),
+    //    ToolCallBehavior = OnnxRuntimeGenAIToolCallBehavior.AutoInvokeKernelFunctions,
+    //};
+
+    #endregion
+
+    var executionSettings = new GeminiPromptExecutionSettings
     {
-        Console.WriteLine($" - {tool.Name}: {tool.Description}");
-    }
-
-    // ----------------- Semantic Kernel with the MCP Tools -----------------
-
-    const string modelPath =
-        @"C:\ai-models\phi-3\Phi-3-mini-4k-instruct-onnx\cpu_and_mobile\cpu-int4-awq-block-128";
-    //@"C:\ai-models\phi-4\cpu_and_mobile\cpu-int4-rtn-block-32-acc-level-4";
-
-    var builder = Kernel.CreateBuilder()
-        .AddOnnxRuntimeGenAIChatCompletion("phi-3", modelPath);
-    builder.Plugins.AddFromFunctions(
-        pluginName: "GetWeather",
-        functions: tools.Select(aiFunction => aiFunction.AsKernelFunction()));
-
-    var kernel = builder.Build();
-
-    kernel.FunctionInvocationFilters.Add(new FunctionInvocationLogger());
-
-    var executionSettings = new PromptExecutionSettings
-    {
-        FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(
-            options: new FunctionChoiceBehaviorOptions { RetainArgumentTypes = true }),
-        ExtensionData = new Dictionary<string, object>
-        {
-            { "temperature", 0 }
-        }
+        Temperature = 0,
+        ToolCallBehavior = GeminiToolCallBehavior.AutoInvokeKernelFunctions,
     };
 
-    // ----------------- Chat Completion  -----------------
-    var chat =
-        kernel.Services.GetRequiredService<IChatCompletionService>();
-    var history = new ChatHistory();
-    history.AddUserMessage("What's the weather in Madrid?");
-    var messageContent = await chat.GetChatMessageContentAsync(
-        history,
-        executionSettings,
-        kernel);
-    Console.WriteLine(messageContent.Content);
+    // Option 1
+    var chatService = kernel.Services.GetRequiredService<IChatCompletionService>();
+    var chatMessages = new ChatHistory();
+
+    while (true)
+    {
+        Console.Write("Prompt: ");
+        chatMessages.AddUserMessage(Console.ReadLine() ?? String.Empty);
+
+        var completion =
+            chatService.GetStreamingChatMessageContentsAsync(
+                chatMessages, executionSettings, kernel);
+
+        var fullMessage = "> ";
+        await foreach (var content in completion)
+        {
+            Console.Write(content.Content);
+            fullMessage += content.Content ?? String.Empty;
+        }
+
+        chatMessages.AddAssistantMessage(fullMessage);
+        Console.WriteLine();
+    }
+
+    // Option 2
+    // const string prompt = "What's the weather in Huelva?";
+    // var result = await kernel.InvokePromptAsync(prompt, new(executionSettings));
+    // Console.WriteLine(result);
+
+    // Console.Write("Press ENTER to finish...");
+    // Console.ReadKey();
 }
 catch (Exception ex)
 {
@@ -90,4 +116,35 @@ finally
     GC.Collect();
 }
 
-Console.WriteLine();
+async Task<IMcpClient> CreateMcpClient()
+{
+    //const string mcpServerProjectPath =
+    //    @"C:\code\elguerre\ai-labs\WeatherMcp\WeatherMcpServer\WeatherMcpServer.csproj";
+
+    var mcpServerProjectPath = Path.GetFullPath(
+        Path.Combine(
+            AppContext.BaseDirectory,
+            "..", "..", "..", "..",
+            "WeatherMcpServer", "WeatherMcpServer.csproj"));
+
+    var clientTransport = new StdioClientTransport(
+        new StdioClientTransportOptions
+        {
+            Name = "Get-Weather",
+            Command = "dotnet",
+            Arguments =
+            [
+                "run", "--project", mcpServerProjectPath /*, "--no-build"*/
+            ],
+        });
+
+    return await McpClientFactory.CreateAsync(clientTransport);
+}
+
+void PrintMcpTools(IList<McpClientTool> tools)
+{
+    foreach (var tool in tools)
+    {
+        Console.WriteLine($" - {tool.Name}: {tool.Description}");
+    }
+}

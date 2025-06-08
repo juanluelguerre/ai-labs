@@ -1,13 +1,14 @@
 using System.ComponentModel;
-using ModelContextProtocol.Server;
+using Microsoft.SemanticKernel;
 using Weather.Common;
 
-namespace WeatherMcpServer.Tools;
+namespace WeatherAIConsole.Plugins;
 
-[McpServerToolType]
-public class WeatherTool
+public class WeatherPlugin
 {
-    [McpServerTool,
+    private readonly HttpClient httpClient = new();
+
+    [KernelFunction,
      Description("Provides current temperature and weather for a given city.")]
     public async Task<string> GetWeather(string city)
     {
